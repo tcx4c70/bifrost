@@ -1452,6 +1452,16 @@ func (provider *AzureProvider) TranscriptionStream(ctx *schemas.BifrostContext, 
 	return nil, providerUtils.NewUnsupportedOperationError(schemas.TranscriptionStreamRequest, provider.GetProviderKey())
 }
 
+func createUrlForImageGeneration(endpoint, deployment, apiVersion string) string {
+	var isFluxModel = strings.HasPrefix(strings.ToLower(deployment), "flux")
+
+	if isFluxModel {
+		return fmt.Sprintf("%s/providers/blackforestlabs/v1/%s?api-version=%s", endpoint, deployment, apiVersion);
+	} else {
+		return fmt.Sprintf("%s/openai/deployments/%s/images/generations?api-version=%s", endpoint, deployment, apiVersion)
+	}
+}
+
 // ImageGeneration performs an Image Generation request to Azure's API.
 // It formats the request, sends it to Azure, and processes the response.
 // Returns a BifrostResponse containing the bifrost response or an error if the request fails.
@@ -1480,7 +1490,7 @@ func (provider *AzureProvider) ImageGeneration(ctx *schemas.BifrostContext, key 
 	response, err := openai.HandleOpenAIImageGenerationRequest(
 		ctx,
 		provider.client,
-		fmt.Sprintf("%s/openai/deployments/%s/images/generations?api-version=%s", endpoint, deployment, apiVersion.GetValue()),
+		createUrlForImageGeneration(endpoint, deployment, apiVersion.GetValue()),
 		request,
 		key,
 		provider.networkConfig.ExtraHeaders,
@@ -1537,8 +1547,6 @@ func (provider *AzureProvider) ImageGenerationStream(
 		return resp
 	}
 
-	url := fmt.Sprintf("%s/openai/deployments/%s/images/generations?api-version=%s", endpoint, deployment, apiVersion.GetValue())
-
 	authHeader, err := provider.getAzureAuthHeaders(ctx, key, false)
 	if err != nil {
 		return nil, err
@@ -1548,7 +1556,7 @@ func (provider *AzureProvider) ImageGenerationStream(
 	return openai.HandleOpenAIImageGenerationStreaming(
 		ctx,
 		provider.client,
-		url,
+		createUrlForImageGeneration(endpoint, deployment, apiVersion.GetValue()),
 		request,
 		authHeader,
 		provider.networkConfig.ExtraHeaders,
